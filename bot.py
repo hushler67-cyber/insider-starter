@@ -5,24 +5,24 @@ from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
+    MessageHandler,
     ConversationHandler,
     ContextTypes,
+    filters,
 )
 
-# Enable logging
+# Logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# Conversation states
+# States
 PROCEED, INVITED_BY, COUNTRY, PROFIT = range(4)
 
-# ───────────────────────────────────────────────
-# REPLACE THIS with the verification bot username (without @)
-VERIFICATION_BOT = "YourVerificationBot"   # e.g. "SpamVerifyBot"
-# ───────────────────────────────────────────────
+# CopyTrade bot username
+VERIFICATION_BOT = "CopyEntries00bot"
 
 WELCOME_TEXT = (
     "👋 *Welcome to Elite AutoTrade Hub*\n\n"
@@ -37,7 +37,6 @@ WELCOME_TEXT = (
 )
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Send professional welcome message with Proceed button."""
     keyboard = [[InlineKeyboardButton("✅ Proceed", callback_data="proceed")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -49,7 +48,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return PROCEED
 
 async def proceed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Ask how the user was invited."""
     query = update.callback_query
     await query.answer()
 
@@ -67,11 +65,9 @@ async def proceed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return INVITED_BY
 
 async def invited_by(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Save invitation method and ask for country."""
     query = update.callback_query
     await query.answer()
 
-    # Store the answer
     context.user_data["invited_by"] = query.data.replace("invited_", "")
 
     await query.edit_message_text(
@@ -81,7 +77,6 @@ async def invited_by(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return COUNTRY
 
 async def country(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Save country and ask for highest profit range."""
     country_name = update.message.text.strip()
     context.user_data["country"] = country_name
 
@@ -102,15 +97,14 @@ async def country(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return PROFIT
 
 async def profit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Final step — show Join Trade button that links to verification bot."""
     query = update.callback_query
     await query.answer()
 
     context.user_data["profit"] = query.data.replace("profit_", "")
 
-    # Optional: log the collected data
     logger.info(
         f"New user | ID: {query.from_user.id} | "
+        f"Username: @{query.from_user.username} | "
         f"Invited: {context.user_data.get('invited_by')} | "
         f"Country: {context.user_data.get('country')} | "
         f"Profit: {context.user_data.get('profit')}"
@@ -118,24 +112,27 @@ async def profit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     keyboard = [
         [InlineKeyboardButton(
-            "🚀 Join Trade Now",
+            "✅ Verification to Join",
+            url="https://inisider-screener.pages.dev"
+        )],
+        [InlineKeyboardButton(
+            "📈 Use CopyTrade Bot",
             url=f"https://t.me/{VERIFICATION_BOT}"
-        )]
+        )],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.edit_message_text(
         "✅ *You're all set!*\n\n"
-        "One final step: complete a quick spam verification to unlock full access "
-        "to the trading group and autotrade features.\n\n"
-        "Click the button below to continue 👇",
+        "Kindly click the button below to verify.\n\n"
+        "You can also start using the CopyTrade bot right away.\n\n"
+        "Choose an option below 👇",
         reply_markup=reply_markup,
         parse_mode="Markdown"
     )
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Allow user to cancel the conversation."""
     await update.message.reply_text("Process cancelled. Type /start anytime to begin again.")
     return ConversationHandler.END
 
@@ -151,26 +148,6 @@ def main() -> None:
         states={
             PROCEED: [CallbackQueryHandler(proceed, pattern="^proceed$")],
             INVITED_BY: [CallbackQueryHandler(invited_by, pattern="^invited_")],
-            COUNTRY: [CallbackQueryHandler(profit)],  # temporary fallback, real handler below
-            PROFIT: [CallbackQueryHandler(profit, pattern="^profit_")],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
-        allow_reentry=True,
-    )
-
-    # Fix: country is a text message, not callback
-    conv_handler.states[COUNTRY] = [
-        # MessageHandler is needed for free text
-    ]
-
-    # Better way — rebuild cleanly
-    from telegram.ext import MessageHandler, filters
-
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
-        states={
-            PROCEED: [CallbackQueryHandler(proceed, pattern="^proceed$")],
-            INVITED_BY: [CallbackQueryHandler(invited_by, pattern="^invited_")],
             COUNTRY: [MessageHandler(filters.TEXT & ~filters.COMMAND, country)],
             PROFIT: [CallbackQueryHandler(profit, pattern="^profit_")],
         },
@@ -179,9 +156,7 @@ def main() -> None:
     )
 
     application.add_handler(conv_handler)
-    application.add_handler(CommandHandler("cancel", cancel))
 
-    # Start the bot
     print("Bot is running...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
