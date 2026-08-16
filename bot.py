@@ -25,8 +25,8 @@ PROCEED, INVITED_BY, COUNTRY, PROFIT = range(4)
 VERIFICATION_BOT = "CopyEntries00bot"
 
 WELCOME_TEXT = (
-    "👋 *Welcome to Elite AutoTrade Hub*\n\n"
-    "You're now at the entrance of a *professional trading community* "
+    "👋 *ONE STEP TO RICHES BRO!!*\n\n"
+    "You're now at the entrance of a *professional insider community* "
     "where precision meets performance.\n\n"
     "🔹 Automated trade execution\n"
     "🔹 Strategic planning & risk management\n"
